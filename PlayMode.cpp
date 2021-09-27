@@ -206,8 +206,66 @@ void PlayMode::update(float elapsed) {
 		if (down.pressed && !up.pressed)     miner->position.y -= miner_speed * elapsed;
 		if (!down.pressed && up.pressed)     miner->position.y += miner_speed * elapsed;
 
-		// TODO: first check if y position is within entrance or not; if still outside,
-		// can only move forward or back
+		// Bound movement
+		if (miner->position.y < -platform_radius) {
+			miner->position.y = -platform_radius;
+		}
+		else if (miner->position.y > (platform_radius - wall_thickness)) {
+			miner->position.y = platform_radius - wall_thickness;
+		}
+
+		if (!in_shaft) {
+			if (miner->position.y > -3.0f) { // Entering the mine shaft
+				in_shaft = true;
+			}
+
+			// Can only stay within this entrance "pathway"
+			if (miner->position.x < -0.5f) {
+				miner->position.x = -0.5f;
+			}
+			else if (miner->position.x > 0.5f) {
+				miner->position.x = 0.5f;
+			}
+		}
+		else {
+			if (miner->position.y < -3.0f) {
+				if ((miner->position.x < -0.5f) || (miner->position.x > 0.5f)) {
+					miner->position.y = -3.0f;
+				}
+				else { // Exiting the mine shaft
+					in_shaft = false;
+				}
+			}
+
+			if (miner->position.x < (-platform_radius + wall_thickness)) {
+				miner->position.x = -platform_radius + wall_thickness;
+			}
+			else if (miner->position.x > (platform_radius - wall_thickness)) {
+				miner->position.x = platform_radius - wall_thickness;
+			}
+		}
+		/*
+		if (miner->position.y < -platform_radius) {
+			miner->position.y = -platform_radius;
+		}
+		else if (miner->position.y < -3.0f) { // Within platform but outside of shaft
+			// Only let player move within a certain x-range -- the "entrance pathway"
+			if (miner->position.x < -0.8f) {
+				miner->position.x = -0.8f;
+			}
+			else if (miner->position.x > 0.8f) {
+				miner->position.x = 0.8f;
+			}
+		} else if (miner->position.y > (platform_radius - wall_thickness)) {
+			miner->position.y = platform_radius - wall_thickness;
+		}
+
+		if (miner->position.x < (-platform_radius + wall_thickness)) {
+			miner->position.x = -platform_radius + wall_thickness;
+		}
+		else if (miner->position.x > (platform_radius - wall_thickness)) {
+			miner->position.x = platform_radius - wall_thickness;
+		}*/
 		//if (miner->position.x > table_radius)  miner->position.x = table_radius;
 		//if (miner->position.x < -table_radius) miner->position.x = -table_radius;
 		//if (miner->position.y > table_radius)  miner->position.y = table_radius;

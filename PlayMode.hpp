@@ -50,7 +50,6 @@ struct PlayMode : Mode {
 	};
 
 	Scene::Transform *miner = nullptr;
-	float miner_speed = 3.0f;
 
 	Scene::Transform *gem   = nullptr;
 	GLenum gem_vertex_type  = GL_TRIANGLES; //what sort of primitive to draw; passed to glDrawArrays
@@ -58,6 +57,11 @@ struct PlayMode : Mode {
 	GLuint gem_vertex_count = 0; //number of vertices to draw; passed to glDrawArrays
 
 	std::vector< Shiny > shinies; //Vector of all gems currently left in the mine
+
+	float miner_speed = 3.0f;
+	float platform_radius = 5.3f;
+	float wall_thickness = 1.5f;
+	bool in_shaft = false;
 	
 	std::shared_ptr< Sound::PlayingSample > canary;
 
