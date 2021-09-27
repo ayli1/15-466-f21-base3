@@ -12,23 +12,23 @@
 
 #include <random>
 
-GLuint hexapod_meshes_for_lit_color_texture_program = 0;
-Load< MeshBuffer > hexapod_meshes(LoadTagDefault, []() -> MeshBuffer const * {
-	MeshBuffer const *ret = new MeshBuffer(data_path("hexapod.pnct"));
-	hexapod_meshes_for_lit_color_texture_program = ret->make_vao_for_program(lit_color_texture_program->program);
+GLuint mine_meshes_for_lit_color_texture_program = 0;
+Load< MeshBuffer > mine_meshes(LoadTagDefault, []() -> MeshBuffer const * {
+	MeshBuffer const *ret = new MeshBuffer(data_path("mine.pnct"));
+	mine_meshes_for_lit_color_texture_program = ret->make_vao_for_program(lit_color_texture_program->program);
 	return ret;
 });
 
-Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
-	return new Scene(data_path("hexapod.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
-		Mesh const &mesh = hexapod_meshes->lookup(mesh_name);
+Load< Scene > mine_scene(LoadTagDefault, []() -> Scene const * {
+	return new Scene(data_path("mine.scene"), [&](Scene &scene, Scene::Transform *transform, std::string const &mesh_name){
+		Mesh const &mesh = mine_meshes->lookup(mesh_name);
 
 		scene.drawables.emplace_back(transform);
 		Scene::Drawable &drawable = scene.drawables.back();
 
 		drawable.pipeline = lit_color_texture_program_pipeline;
 
-		drawable.pipeline.vao = hexapod_meshes_for_lit_color_texture_program;
+		drawable.pipeline.vao = mine_meshes_for_lit_color_texture_program;
 		drawable.pipeline.type = mesh.type;
 		drawable.pipeline.start = mesh.start;
 		drawable.pipeline.count = mesh.count;
@@ -36,12 +36,14 @@ Load< Scene > hexapod_scene(LoadTagDefault, []() -> Scene const * {
 	});
 });
 
-Load< Sound::Sample > dusty_floor_sample(LoadTagDefault, []() -> Sound::Sample const * {
-	return new Sound::Sample(data_path("dusty-floor.opus"));
+Load< Sound::Sample > canary_sample(LoadTagDefault, []() -> Sound::Sample const * {
+	//return new Sound::Sample(data_path("dusty-floor.opus"));
+	return new Sound::Sample(data_path("canary.wav"));
 });
 
-PlayMode::PlayMode() : scene(*hexapod_scene) {
+PlayMode::PlayMode() : scene(*mine_scene) {
 	//get pointers to leg for convenience:
+	/*
 	for (auto &transform : scene.transforms) {
 		if (transform.name == "Hip.FL") hip = &transform;
 		else if (transform.name == "UpperLeg.FL") upper_leg = &transform;
@@ -54,6 +56,16 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
 	hip_base_rotation = hip->rotation;
 	upper_leg_base_rotation = upper_leg->rotation;
 	lower_leg_base_rotation = lower_leg->rotation;
+	*/
+
+	//get pointerz
+	for (auto& transform : scene.transforms) {
+		if (transform.name == "Miner")    miner = &transform;
+		else if (transform.name == "Gem") gem = &transform;
+	}
+
+	if (miner == nullptr) throw std::runtime_error("Miner not found.");
+	if (gem   == nullptr) throw std::runtime_error("Gem not found.");
 
 	//get pointer to camera for convenience:
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
@@ -61,7 +73,12 @@ PlayMode::PlayMode() : scene(*hexapod_scene) {
 
 	//start music loop playing:
 	// (note: position will be over-ridden in update())
+	/*
 	leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
+	*/
+
+	// TODO: move this line to wherever you determine when player has entered mine shaft
+	canary = Sound::play(*canary_sample);
 }
 
 PlayMode::~PlayMode() {
@@ -130,6 +147,7 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 void PlayMode::update(float elapsed) {
 
 	//slowly rotates through [0,1):
+	/*
 	wobble += elapsed / 10.0f;
 	wobble -= std::floor(wobble);
 
@@ -148,8 +166,10 @@ void PlayMode::update(float elapsed) {
 
 	//move sound to follow leg tip position:
 	leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
+	*/
 
 	//move camera:
+	/*
 	{
 
 		//combine inputs into a move:
@@ -170,12 +190,28 @@ void PlayMode::update(float elapsed) {
 
 		camera->transform->position += move.x * right + move.y * forward;
 	}
+	
 
 	{ //update listener to camera position:
 		glm::mat4x3 frame = camera->transform->make_local_to_parent();
 		glm::vec3 right = frame[0];
 		glm::vec3 at = frame[3];
 		Sound::listener.set_position_right(at, right, 1.0f / 60.0f);
+	}*/
+
+	//move miner:
+	{
+		if (left.pressed && !right.pressed)  miner->position.x -= miner_speed * elapsed;
+		if (!left.pressed && right.pressed)  miner->position.x += miner_speed * elapsed;
+		if (down.pressed && !up.pressed)     miner->position.y -= miner_speed * elapsed;
+		if (!down.pressed && up.pressed)     miner->position.y += miner_speed * elapsed;
+
+		// TODO: first check if y position is within entrance or not; if still outside,
+		// can only move forward or back
+		//if (miner->position.x > table_radius)  miner->position.x = table_radius;
+		//if (miner->position.x < -table_radius) miner->position.x = -table_radius;
+		//if (miner->position.y > table_radius)  miner->position.y = table_radius;
+		//if (miner->position.y < -table_radius) miner->position.y = -table_radius;
 	}
 
 	//reset button press counters:
@@ -230,7 +266,9 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 	GL_ERRORS();
 }
 
+/*
 glm::vec3 PlayMode::get_leg_tip_position() {
 	//the vertex position here was read from the model in blender:
 	return lower_leg->make_local_to_world() * glm::vec4(-1.26137f, -11.861f, 0.0f, 1.0f);
 }
+*/

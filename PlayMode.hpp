@@ -29,6 +29,7 @@ struct PlayMode : Mode {
 	Scene scene;
 
 	//hexapod leg to wobble:
+	/*
 	Scene::Transform *hip = nullptr;
 	Scene::Transform *upper_leg = nullptr;
 	Scene::Transform *lower_leg = nullptr;
@@ -41,7 +42,25 @@ struct PlayMode : Mode {
 
 	//music coming from the tip of the leg (as a demonstration):
 	std::shared_ptr< Sound::PlayingSample > leg_tip_loop;
+	*/
+
+	struct Shiny {
+		Scene::Transform *transform;
+		int value = 0; // +1 for emerald, +2 for sapphire, +5 for diamond
+	};
+
+	Scene::Transform *miner = nullptr;
+	float miner_speed = 3.0f;
+
+	Scene::Transform *gem   = nullptr;
+	GLenum gem_vertex_type  = GL_TRIANGLES; //what sort of primitive to draw; passed to glDrawArrays
+	GLuint gem_vertex_start = 0; //first vertex to draw; passed to glDrawArrays
+	GLuint gem_vertex_count = 0; //number of vertices to draw; passed to glDrawArrays
+
+	std::vector< Shiny > shinies; //Vector of all gems currently left in the mine
 	
+	std::shared_ptr< Sound::PlayingSample > canary;
+
 	//camera:
 	Scene::Camera *camera = nullptr;
 
