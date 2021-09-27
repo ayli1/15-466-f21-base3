@@ -58,10 +58,14 @@ struct PlayMode : Mode {
 
 	std::vector< Shiny > shinies; //Vector of all gems currently left in the mine
 
-	float miner_speed = 3.0f;
+	float miner_speed     = 3.0f;
+	float miner_height    = 0.766f;
 	float platform_radius = 5.3f;
-	float wall_thickness = 1.5f;
+	float wall_thickness  = 1.5f;
 	bool in_shaft = false;
+	bool reset    = true;
+	size_t num_shinies = 1;
+	int score = 0;
 	
 	std::shared_ptr< Sound::PlayingSample > canary;
 

@@ -59,9 +59,20 @@ PlayMode::PlayMode() : scene(*mine_scene) {
 	*/
 
 	//get pointerz
+	/*
 	for (auto& transform : scene.transforms) {
 		if (transform.name == "Miner")    miner = &transform;
 		else if (transform.name == "Gem") gem = &transform;
+	}*/
+
+	for (auto& drawable : scene.drawables) {
+		if (drawable.transform->name == "Miner") miner = (drawable.transform);
+		else if (drawable.transform->name == "Gem") {
+			gem = (drawable.transform);
+			gem_vertex_type = drawable.pipeline.type;
+			gem_vertex_start = drawable.pipeline.start;
+			gem_vertex_count = drawable.pipeline.count;
+		}
 	}
 
 	if (miner == nullptr) throw std::runtime_error("Miner not found.");
@@ -244,32 +255,6 @@ void PlayMode::update(float elapsed) {
 				miner->position.x = platform_radius - wall_thickness;
 			}
 		}
-		/*
-		if (miner->position.y < -platform_radius) {
-			miner->position.y = -platform_radius;
-		}
-		else if (miner->position.y < -3.0f) { // Within platform but outside of shaft
-			// Only let player move within a certain x-range -- the "entrance pathway"
-			if (miner->position.x < -0.8f) {
-				miner->position.x = -0.8f;
-			}
-			else if (miner->position.x > 0.8f) {
-				miner->position.x = 0.8f;
-			}
-		} else if (miner->position.y > (platform_radius - wall_thickness)) {
-			miner->position.y = platform_radius - wall_thickness;
-		}
-
-		if (miner->position.x < (-platform_radius + wall_thickness)) {
-			miner->position.x = -platform_radius + wall_thickness;
-		}
-		else if (miner->position.x > (platform_radius - wall_thickness)) {
-			miner->position.x = platform_radius - wall_thickness;
-		}*/
-		//if (miner->position.x > table_radius)  miner->position.x = table_radius;
-		//if (miner->position.x < -table_radius) miner->position.x = -table_radius;
-		//if (miner->position.y > table_radius)  miner->position.y = table_radius;
-		//if (miner->position.y < -table_radius) miner->position.y = -table_radius;
 	}
 
 	//reset button press counters:
@@ -277,6 +262,60 @@ void PlayMode::update(float elapsed) {
 	right.downs = 0;
 	up.downs = 0;
 	down.downs = 0;
+
+
+	if (reset) { // Randomly generate gems
+		reset = false;
+		score = 0;
+
+		for (size_t i = 0; i < num_shinies; i++) {
+			Shiny new_shiny;
+			new_shiny.transform = new Scene::Transform;
+			new_shiny.transform->rotation = gem->rotation;
+			new_shiny.transform->scale    = gem->scale;
+			//TODO: randomize position
+			new_shiny.transform->position = glm::vec3(0.0f, 0.0f, miner_height);
+			new_shiny.value = 1;
+
+			//Add to drawables
+			scene.drawables.emplace_back(new_shiny.transform);
+
+			Scene::Drawable& drawable = scene.drawables.back();
+			drawable.pipeline = lit_color_texture_program_pipeline;
+			drawable.pipeline.vao   = mine_meshes_for_lit_color_texture_program;
+			drawable.pipeline.type  = gem_vertex_type;
+			drawable.pipeline.start = gem_vertex_start;
+			drawable.pipeline.count = gem_vertex_count;
+
+			shinies.push_back(new_shiny);
+		}
+		
+	}
+	else { // Check for gem collisions
+		for (size_t i = 0; i < shinies.size(); i++) {
+			Shiny &shiny = shinies[i];
+			if (glm::distance(shiny.transform->position, miner->position) < 0.7f) {
+				score += shiny.value;
+
+				// Get rid of this item!! We don't want them anymore >:(
+				// First remove from drawables...
+				// Referenced: https://stackoverflow.com/questions/16445358/stdfind-object-by-member
+				std::list< Scene::Drawable >::iterator it;
+				it = std::find_if(scene.drawables.begin(), scene.drawables.end(),
+					[&](Scene::Drawable& d) { return d.transform == shiny.transform; });
+				if (it != scene.drawables.end()) {
+					scene.drawables.erase(it);
+				}
+				else {
+					std::cout << "Hey, couldn't find that drawable ??" << std::endl;
+				}
+
+				// ... now remove from shinies vector
+				// Referenced: https://stackoverflow.com/questions/3385229/c-erase-vector-element-by-value-rather-than-by-position
+				shinies.erase(shinies.begin() + i);
+			}
+		}
+	}
 }
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
@@ -311,12 +350,12 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 		));
 
 		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
+		lines.draw_text("Mouse motion rotates camera; escape ungrabs mouse; WASD moves miner; score: " + std::to_string(score),
 			glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion rotates camera; WASD moves; escape ungrabs mouse",
+		lines.draw_text("Mouse motion rotates camera; escape ungrabs mouse; WASD moves miner; score: " + std::to_string(score),
 			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + + 0.1f * H + ofs, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
