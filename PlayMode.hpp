@@ -23,7 +23,7 @@ struct PlayMode : Mode {
 	struct Button {
 		uint8_t downs = 0;
 		uint8_t pressed = 0;
-	} left, right, down, up;
+	} left, right, down, up, tap, play_again;
 
 	//local copy of the game scene (so code can change it during gameplay):
 	Scene scene;
@@ -46,7 +46,10 @@ struct PlayMode : Mode {
 
 	struct Shiny {
 		Scene::Transform *transform;
-		int value = 0; // +1 for emerald, +2 for sapphire, +5 for diamond
+		bool mined  = false; // Whether the player has acquired this gem
+		int  value  = 0;     // Number of times it needs to be tapped in order to be mined
+		int  tapped = 0;     // Number of times this gem has been tapped
+		float time_since_last_tap = 0.0f;
 	};
 
 	Scene::Transform *miner = nullptr;
@@ -58,16 +61,20 @@ struct PlayMode : Mode {
 
 	std::vector< Shiny > shinies; //Vector of all gems currently left in the mine
 
+	glm::vec3 miner_pos0  = glm::vec3(0.0f, 0.0f, 0.0f); // Miner's original position
 	float miner_speed     = 3.0f;
-	float miner_height    = 0.766f;
 	float platform_radius = 5.3f;
 	float wall_thickness  = 1.5f;
 	bool in_shaft = false;
 	bool reset    = true;
-	size_t num_shinies = 1;
+	bool game_over = false;
+	size_t num_shinies = 10;
 	int score = 0;
 	
 	std::shared_ptr< Sound::PlayingSample > canary;
+	float time_in_mine  = 0.0f;
+	float time_of_death = 0.0f;
+	float time_to_leave = 2.0f; // Amount of time player has to get out of the mine after canary stops singing
 
 	//camera:
 	Scene::Camera *camera = nullptr;

@@ -66,7 +66,10 @@ PlayMode::PlayMode() : scene(*mine_scene) {
 	}*/
 
 	for (auto& drawable : scene.drawables) {
-		if (drawable.transform->name == "Miner") miner = (drawable.transform);
+		if (drawable.transform->name == "Miner") {
+			miner = (drawable.transform);
+			miner_pos0 = miner->position;
+		}
 		else if (drawable.transform->name == "Gem") {
 			gem = (drawable.transform);
 			gem_vertex_type = drawable.pipeline.type;
@@ -88,8 +91,7 @@ PlayMode::PlayMode() : scene(*mine_scene) {
 	leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
 	*/
 
-	// TODO: move this line to wherever you determine when player has entered mine shaft
-	canary = Sound::play(*canary_sample);
+	//canary = Sound::play(*canary_sample);
 }
 
 PlayMode::~PlayMode() {
@@ -117,6 +119,12 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			down.downs += 1;
 			down.pressed = true;
 			return true;
+		} else if (evt.key.keysym.sym == SDLK_SPACE) {
+			tap.downs += 1;
+			tap.pressed = true;
+		} else if (evt.key.keysym.sym == SDLK_r) {
+			play_again.downs += 1;
+			play_again.pressed = true;
 		}
 	} else if (evt.type == SDL_KEYUP) {
 		if (evt.key.keysym.sym == SDLK_a) {
@@ -130,6 +138,13 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 			return true;
 		} else if (evt.key.keysym.sym == SDLK_s) {
 			down.pressed = false;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_SPACE) {
+			tap.pressed = false;
+			return true;
+		} else if (evt.key.keysym.sym == SDLK_r) {
+			play_again.pressed = false;
+			if (game_over) reset = true;
 			return true;
 		}
 	} else if (evt.type == SDL_MOUSEBUTTONDOWN) {
@@ -210,8 +225,8 @@ void PlayMode::update(float elapsed) {
 		Sound::listener.set_position_right(at, right, 1.0f / 60.0f);
 	}*/
 
-	//move miner:
-	{
+	// Move miner
+	if (!game_over) {
 		if (left.pressed && !right.pressed)  miner->position.x -= miner_speed * elapsed;
 		if (!left.pressed && right.pressed)  miner->position.x += miner_speed * elapsed;
 		if (down.pressed && !up.pressed)     miner->position.y -= miner_speed * elapsed;
@@ -257,27 +272,75 @@ void PlayMode::update(float elapsed) {
 		}
 	}
 
-	//reset button press counters:
-	left.downs = 0;
-	right.downs = 0;
-	up.downs = 0;
-	down.downs = 0;
-
-
+	// Referenced my game2 code: https://github.com/ayli1/15-466-f21-base2/blob/main/PlayMode.cpp
 	if (reset) { // Randomly generate gems
 		reset = false;
+		game_over = false;
 		score = 0;
+
+		// Clear out any remaining gems from the previous round
+		size_t remaining_shinies = shinies.size();
+		for (size_t i = 0; i < remaining_shinies; i++) {
+			Shiny &shiny = shinies[i];
+
+			// Get rid of this item!! We don't want them anymore >:(
+			// First remove from drawables...
+			// Referenced: https://stackoverflow.com/questions/16445358/stdfind-object-by-member
+			std::list< Scene::Drawable >::iterator it;
+			it = std::find_if(scene.drawables.begin(), scene.drawables.end(),
+				[&](Scene::Drawable& d) { return d.transform == shiny.transform; });
+			if (it != scene.drawables.end()) {
+				scene.drawables.erase(it);
+			}
+			else {
+				std::cout << "Hey, couldn't find that drawable ??" << std::endl;
+			}
+
+			// ... now remove from shinies vector
+			// Referenced: https://stackoverflow.com/questions/3385229/c-erase-vector-element-by-value-rather-than-by-position
+			//shinies.erase(shinies.begin() + i);
+		}
+
+		shinies.clear();
+		std::cout << "Number of shinies after resetting: " << shinies.size() << std::endl;
+		miner->position = miner_pos0; // Reset player position
+		canary = Sound::play(*canary_sample); // Get that canary singin'
+
+		std::cout << "Resetting" << std::endl;
+
+		// Reference for random number generation in a range: https://stackoverflow.com/questions/7560114/random-number-c-in-some-range
+		std::random_device rd;  // Obtain random number
+		std::mt19937 gen(rd()); // Seed the generator
+
+		// Randomize amount of time for which the canary will sing
+		std::uniform_real_distribution< float > c_distr(0.0f, 30.0f);
+		time_of_death = c_distr(gen);
 
 		for (size_t i = 0; i < num_shinies; i++) {
 			Shiny new_shiny;
 			new_shiny.transform = new Scene::Transform;
 			new_shiny.transform->rotation = gem->rotation;
 			new_shiny.transform->scale    = gem->scale;
-			//TODO: randomize position
-			new_shiny.transform->position = glm::vec3(0.0f, 0.0f, miner_height);
-			new_shiny.value = 1;
 
-			//Add to drawables
+			std::uniform_int_distribution<> v_distr(1, 5);
+			new_shiny.value = v_distr(gen); // Randomize value of gem
+
+			// Randomize position (within mine shaft)
+			std::uniform_real_distribution< float > x_distr(-platform_radius + wall_thickness, platform_radius - wall_thickness); // Set range for position.x
+			std::uniform_real_distribution< float > y_distr(-3.0f, platform_radius - wall_thickness); // Set range for position.y
+			new_shiny.transform->position.x = x_distr(gen);
+			new_shiny.transform->position.y = y_distr(gen);
+			new_shiny.transform->position.z = miner_pos0.z;
+
+			// Make sure this gem doesn't overlap with other gems
+			for (Shiny other_shiny : shinies) {
+				while (glm::distance(new_shiny.transform->position, other_shiny.transform->position) < 0.6f) {
+					new_shiny.transform->position.x = x_distr(gen);
+					new_shiny.transform->position.y = y_distr(gen);
+				}
+			}
+
+			// Add to drawables
 			scene.drawables.emplace_back(new_shiny.transform);
 
 			Scene::Drawable& drawable = scene.drawables.back();
@@ -292,30 +355,61 @@ void PlayMode::update(float elapsed) {
 		
 	}
 	else { // Check for gem collisions
+		if (!game_over) time_in_mine += elapsed;
+
+		if (time_in_mine >= (time_of_death + time_to_leave)) {
+			// Canary has stopped singing, and miner has run out of time to get out
+			game_over = true;
+			time_in_mine = 0.0f;
+		} else if (time_in_mine >= time_of_death) {
+			// Canary stops singing...
+			canary->stop();
+		}
+
 		for (size_t i = 0; i < shinies.size(); i++) {
 			Shiny &shiny = shinies[i];
-			if (glm::distance(shiny.transform->position, miner->position) < 0.7f) {
-				score += shiny.value;
-
-				// Get rid of this item!! We don't want them anymore >:(
-				// First remove from drawables...
-				// Referenced: https://stackoverflow.com/questions/16445358/stdfind-object-by-member
-				std::list< Scene::Drawable >::iterator it;
-				it = std::find_if(scene.drawables.begin(), scene.drawables.end(),
-					[&](Scene::Drawable& d) { return d.transform == shiny.transform; });
-				if (it != scene.drawables.end()) {
-					scene.drawables.erase(it);
-				}
-				else {
-					std::cout << "Hey, couldn't find that drawable ??" << std::endl;
+			if ((glm::distance(shiny.transform->position, miner->position) < 0.5f) &&
+				 tap.pressed) {
+				shiny.time_since_last_tap += elapsed;
+				if (shiny.time_since_last_tap > 0.5f) {
+					shiny.tapped += 1;
+					shiny.time_since_last_tap = 0.0f;
 				}
 
-				// ... now remove from shinies vector
-				// Referenced: https://stackoverflow.com/questions/3385229/c-erase-vector-element-by-value-rather-than-by-position
-				shinies.erase(shinies.begin() + i);
+				if (shiny.tapped == shiny.value) {
+					score += shiny.value;
+
+					// Get rid of this item!! We don't want them anymore >:(
+					// First remove from drawables...
+					// Referenced: https://stackoverflow.com/questions/16445358/stdfind-object-by-member
+					std::list< Scene::Drawable >::iterator it;
+					it = std::find_if(scene.drawables.begin(), scene.drawables.end(),
+						[&](Scene::Drawable& d) { return d.transform == shiny.transform; });
+					if (it != scene.drawables.end()) {
+						scene.drawables.erase(it);
+					}
+					else {
+						std::cout << "Hey, couldn't find that drawable ??" << std::endl;
+					}
+
+					// ... now remove from shinies vector
+					// Referenced: https://stackoverflow.com/questions/3385229/c-erase-vector-element-by-value-rather-than-by-position
+					shinies.erase(shinies.begin() + i);
+				}
 			}
 		}
+
+		if (shinies.empty()) {
+			game_over = true;
+		}
 	}
+
+	//reset button press counters:
+	left.downs  = 0;
+	right.downs = 0;
+	up.downs    = 0;
+	down.downs  = 0;
+	tap.downs   = 0;
 }
 
 void PlayMode::draw(glm::uvec2 const &drawable_size) {
@@ -359,6 +453,31 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + + 0.1f * H + ofs, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+
+		/*
+		if (game_over) {
+			if (in_shaft) { // No gems for you because you died :(
+				lines.draw_text("YOU LOSE. Press r to play again",
+					glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
+					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+				float ofs = 2.0f / drawable_size.y;
+				lines.draw_text("YOU LOSE. Press r to play again",
+					glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + +0.1f * H + ofs, 0.0),
+					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+					glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+			} else {
+				lines.draw_text("YOU WON" + std::to_string(score) + "pts. Press r to play again",
+					glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
+					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
+				float ofs = 2.0f / drawable_size.y;
+				lines.draw_text("YOU WON" + std::to_string(score) + "pts. Press r to play again",
+					glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + +0.1f * H + ofs, 0.0),
+					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
+					glm::u8vec4(0xff, 0xff, 0xff, 0x00));
+			}
+		}*/
 	}
 	GL_ERRORS();
 }
