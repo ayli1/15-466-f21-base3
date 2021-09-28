@@ -65,8 +65,8 @@ struct PlayMode : Mode {
 	float miner_speed     = 3.0f;
 	float platform_radius = 5.3f;
 	float wall_thickness  = 1.5f;
-	bool in_shaft = false;
-	bool reset    = true;
+	bool in_shaft  = false;
+	bool reset     = true;
 	bool game_over = false;
 	size_t num_shinies = 10;
 	int score = 0;

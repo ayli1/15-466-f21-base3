@@ -295,10 +295,6 @@ void PlayMode::update(float elapsed) {
 			else {
 				std::cout << "Hey, couldn't find that drawable ??" << std::endl;
 			}
-
-			// ... now remove from shinies vector
-			// Referenced: https://stackoverflow.com/questions/3385229/c-erase-vector-element-by-value-rather-than-by-position
-			//shinies.erase(shinies.begin() + i);
 		}
 
 		shinies.clear();
@@ -313,7 +309,7 @@ void PlayMode::update(float elapsed) {
 		std::mt19937 gen(rd()); // Seed the generator
 
 		// Randomize amount of time for which the canary will sing
-		std::uniform_real_distribution< float > c_distr(0.0f, 30.0f);
+		std::uniform_real_distribution< float > c_distr(10.0f, 30.0f);
 		time_of_death = c_distr(gen);
 
 		for (size_t i = 0; i < num_shinies; i++) {
@@ -443,13 +439,26 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 			0.0f, 0.0f, 0.0f, 1.0f
 		));
 
+		std::string txt;
+		if (!game_over) {
+			txt = "Mouse motion rotates camera; escape ungrabs mouse; WASD moves miner; score: " + std::to_string(score);
+		}
+		else {
+			if (in_shaft) {
+				txt = "YOU LOSE. Press R to play again";
+			}
+			else {
+				txt = "YOU WON " + std::to_string(score) + " pts. Press R to play again";
+			}
+		}
+
 		constexpr float H = 0.09f;
-		lines.draw_text("Mouse motion rotates camera; escape ungrabs mouse; WASD moves miner; score: " + std::to_string(score),
+		lines.draw_text(txt,
 			glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0x00, 0x00, 0x00, 0x00));
 		float ofs = 2.0f / drawable_size.y;
-		lines.draw_text("Mouse motion rotates camera; escape ungrabs mouse; WASD moves miner; score: " + std::to_string(score),
+		lines.draw_text(txt,
 			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + + 0.1f * H + ofs, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
@@ -461,21 +470,11 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 					glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-				float ofs = 2.0f / drawable_size.y;
-				lines.draw_text("YOU LOSE. Press r to play again",
-					glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + +0.1f * H + ofs, 0.0),
-					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-					glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 			} else {
 				lines.draw_text("YOU WON" + std::to_string(score) + "pts. Press r to play again",
 					glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
 					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-				float ofs = 2.0f / drawable_size.y;
-				lines.draw_text("YOU WON" + std::to_string(score) + "pts. Press r to play again",
-					glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + +0.1f * H + ofs, 0.0),
-					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-					glm::u8vec4(0xff, 0xff, 0xff, 0x00));
 			}
 		}*/
 	}
