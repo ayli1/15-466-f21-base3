@@ -37,33 +37,10 @@ Load< Scene > mine_scene(LoadTagDefault, []() -> Scene const * {
 });
 
 Load< Sound::Sample > canary_sample(LoadTagDefault, []() -> Sound::Sample const * {
-	//return new Sound::Sample(data_path("dusty-floor.opus"));
 	return new Sound::Sample(data_path("canary.wav"));
 });
 
 PlayMode::PlayMode() : scene(*mine_scene) {
-	//get pointers to leg for convenience:
-	/*
-	for (auto &transform : scene.transforms) {
-		if (transform.name == "Hip.FL") hip = &transform;
-		else if (transform.name == "UpperLeg.FL") upper_leg = &transform;
-		else if (transform.name == "LowerLeg.FL") lower_leg = &transform;
-	}
-	if (hip == nullptr) throw std::runtime_error("Hip not found.");
-	if (upper_leg == nullptr) throw std::runtime_error("Upper leg not found.");
-	if (lower_leg == nullptr) throw std::runtime_error("Lower leg not found.");
-
-	hip_base_rotation = hip->rotation;
-	upper_leg_base_rotation = upper_leg->rotation;
-	lower_leg_base_rotation = lower_leg->rotation;
-	*/
-
-	//get pointerz
-	/*
-	for (auto& transform : scene.transforms) {
-		if (transform.name == "Miner")    miner = &transform;
-		else if (transform.name == "Gem") gem = &transform;
-	}*/
 
 	for (auto& drawable : scene.drawables) {
 		if (drawable.transform->name == "Miner") {
@@ -84,14 +61,6 @@ PlayMode::PlayMode() : scene(*mine_scene) {
 	//get pointer to camera for convenience:
 	if (scene.cameras.size() != 1) throw std::runtime_error("Expecting scene to have exactly one camera, but it has " + std::to_string(scene.cameras.size()));
 	camera = &scene.cameras.front();
-
-	//start music loop playing:
-	// (note: position will be over-ridden in update())
-	/*
-	leg_tip_loop = Sound::loop_3D(*dusty_floor_sample, 1.0f, get_leg_tip_position(), 10.0f);
-	*/
-
-	//canary = Sound::play(*canary_sample);
 }
 
 PlayMode::~PlayMode() {
@@ -172,59 +141,6 @@ bool PlayMode::handle_event(SDL_Event const &evt, glm::uvec2 const &window_size)
 
 void PlayMode::update(float elapsed) {
 
-	//slowly rotates through [0,1):
-	/*
-	wobble += elapsed / 10.0f;
-	wobble -= std::floor(wobble);
-
-	hip->rotation = hip_base_rotation * glm::angleAxis(
-		glm::radians(5.0f * std::sin(wobble * 2.0f * float(M_PI))),
-		glm::vec3(0.0f, 1.0f, 0.0f)
-	);
-	upper_leg->rotation = upper_leg_base_rotation * glm::angleAxis(
-		glm::radians(7.0f * std::sin(wobble * 2.0f * 2.0f * float(M_PI))),
-		glm::vec3(0.0f, 0.0f, 1.0f)
-	);
-	lower_leg->rotation = lower_leg_base_rotation * glm::angleAxis(
-		glm::radians(10.0f * std::sin(wobble * 3.0f * 2.0f * float(M_PI))),
-		glm::vec3(0.0f, 0.0f, 1.0f)
-	);
-
-	//move sound to follow leg tip position:
-	leg_tip_loop->set_position(get_leg_tip_position(), 1.0f / 60.0f);
-	*/
-
-	//move camera:
-	/*
-	{
-
-		//combine inputs into a move:
-		constexpr float PlayerSpeed = 30.0f;
-		glm::vec2 move = glm::vec2(0.0f);
-		if (left.pressed && !right.pressed) move.x =-1.0f;
-		if (!left.pressed && right.pressed) move.x = 1.0f;
-		if (down.pressed && !up.pressed) move.y =-1.0f;
-		if (!down.pressed && up.pressed) move.y = 1.0f;
-
-		//make it so that moving diagonally doesn't go faster:
-		if (move != glm::vec2(0.0f)) move = glm::normalize(move) * PlayerSpeed * elapsed;
-
-		glm::mat4x3 frame = camera->transform->make_local_to_parent();
-		glm::vec3 right = frame[0];
-		//glm::vec3 up = frame[1];
-		glm::vec3 forward = -frame[2];
-
-		camera->transform->position += move.x * right + move.y * forward;
-	}
-	
-
-	{ //update listener to camera position:
-		glm::mat4x3 frame = camera->transform->make_local_to_parent();
-		glm::vec3 right = frame[0];
-		glm::vec3 at = frame[3];
-		Sound::listener.set_position_right(at, right, 1.0f / 60.0f);
-	}*/
-
 	// Move miner
 	if (!game_over) {
 		if (left.pressed && !right.pressed)  miner->position.x -= miner_speed * elapsed;
@@ -298,11 +214,9 @@ void PlayMode::update(float elapsed) {
 		}
 
 		shinies.clear();
-		std::cout << "Number of shinies after resetting: " << shinies.size() << std::endl;
+
 		miner->position = miner_pos0; // Reset player position
 		canary = Sound::play(*canary_sample); // Get that canary singin'
-
-		std::cout << "Resetting" << std::endl;
 
 		// Reference for random number generation in a range: https://stackoverflow.com/questions/7560114/random-number-c-in-some-range
 		std::random_device rd;  // Obtain random number
@@ -364,7 +278,7 @@ void PlayMode::update(float elapsed) {
 
 		for (size_t i = 0; i < shinies.size(); i++) {
 			Shiny &shiny = shinies[i];
-			if ((glm::distance(shiny.transform->position, miner->position) < 0.5f) &&
+			if ((glm::distance(shiny.transform->position, miner->position) < 0.6f) &&
 				 tap.pressed) {
 				shiny.time_since_last_tap += elapsed;
 				if (shiny.time_since_last_tap > 0.5f) {
@@ -462,28 +376,6 @@ void PlayMode::draw(glm::uvec2 const &drawable_size) {
 			glm::vec3(-aspect + 0.1f * H + ofs, -1.0 + + 0.1f * H + ofs, 0.0),
 			glm::vec3(H, 0.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
 			glm::u8vec4(0xff, 0xff, 0xff, 0x00));
-
-		/*
-		if (game_over) {
-			if (in_shaft) { // No gems for you because you died :(
-				lines.draw_text("YOU LOSE. Press r to play again",
-					glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
-					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-			} else {
-				lines.draw_text("YOU WON" + std::to_string(score) + "pts. Press r to play again",
-					glm::vec3(-aspect + 0.1f * H, -1.0 + 0.1f * H, 0.0),
-					glm::vec3((drawable_size.x / 2.0f) - 3.0f, drawable_size.y / 2.0f, 0.0f), glm::vec3(0.0f, H, 0.0f),
-					glm::u8vec4(0x00, 0x00, 0x00, 0x00));
-			}
-		}*/
 	}
 	GL_ERRORS();
 }
-
-/*
-glm::vec3 PlayMode::get_leg_tip_position() {
-	//the vertex position here was read from the model in blender:
-	return lower_leg->make_local_to_world() * glm::vec4(-1.26137f, -11.861f, 0.0f, 1.0f);
-}
-*/
